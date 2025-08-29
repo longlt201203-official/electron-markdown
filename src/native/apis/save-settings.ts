@@ -1,9 +1,9 @@
-import { NativeAPIHandler } from "../types";
+import { AppSettings, NativeAPIHandler } from "../types";
 import * as fs from "fs";
 import * as path from "path";
 import { app } from "electron";
 
-const saveSettings: NativeAPIHandler = (_e, partial: { geminiApiKey?: string }) => {
+const saveSettings: NativeAPIHandler = (_e, partial: AppSettings) => {
     const userDataDir = app.getPath("userData");
     const settingsPath = path.join(userDataDir, "settings.json");
     try { fs.mkdirSync(userDataDir, { recursive: true }); } catch { }
