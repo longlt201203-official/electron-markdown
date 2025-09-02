@@ -20,18 +20,26 @@ import {
 } from "../components/ui/sidebar";
 import { HomeIcon } from "lucide-react";
 import { ModeToggle } from "../components/mode-toggle";
+import GuideDrawer from "../components/guide-drawer";
 import { Separator } from "../components/ui/separator";
+import { useDocuments } from "../components/documents-provider";
+import { useEffect } from "react";
 
 const menuItems = [
   {
     icon: <HomeIcon className="size-4" />,
     label: "Home",
-    to: "/",
+    to: "/editor",
   },
 ];
 
 function Root() {
   const location = useLocation();
+  const { documents, refetch } = useDocuments();
+
+  useEffect(() => {
+    refetch();
+  }, []);
 
   return (
     <SidebarProvider>
@@ -60,14 +68,28 @@ function Root() {
           <SidebarGroup>
             <SidebarGroupLabel>Documents</SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu></SidebarMenu>
+              <SidebarMenu>
+                {documents.map((doc) => (
+                  <SidebarMenuItem key={doc.id}>
+                    <SidebarMenuButton asChild>
+                      <Link
+                        to="/document/$documentId"
+                        params={{ documentId: doc.id.toString() }}
+                      >
+                        {doc.title}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter />
       </Sidebar>
       <SidebarInset>
-        <div className="px-4 py-2">
+        <div className="px-4 py-2 flex gap-2 items-center">
+          <GuideDrawer />
           <ModeToggle />
         </div>
         <Separator />
