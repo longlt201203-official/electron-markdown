@@ -94,7 +94,7 @@ function Root() {
           <ModeToggle />
         </div>
         <Separator />
-  <div className="px-4 py-2 flex flex-1 min-h-0 flex-col overflow-hidden">
+        <div className="px-4 py-2 flex flex-1 min-h-0 flex-col overflow-hidden">
           <Outlet />
           <TanStackRouterDevtools />
         </div>
