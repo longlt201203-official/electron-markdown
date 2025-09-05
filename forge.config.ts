@@ -62,7 +62,7 @@ const config: ForgeConfig = {
           owner: "longlt201203-official",
           name: "electron-markdown",
         },
-        prerelease: true,
+        // prerelease: true,
       },
     },
   ],
