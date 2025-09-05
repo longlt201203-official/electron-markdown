@@ -135,7 +135,7 @@ function RouteComponent() {
 
   return (
     <>
-  <div className="flex flex-col flex-1 min-h-0 gap-y-4 overflow-hidden">
+      <div className="flex flex-col flex-1 min-h-0 gap-y-4 overflow-hidden">
         <div className="flex flex-col gap-y-1">
           <div>
             <Button
