@@ -24,6 +24,7 @@ import GuideDrawer from "../components/guide-drawer";
 import { Separator } from "../components/ui/separator";
 import { useDocuments } from "../components/documents-provider";
 import { useEffect } from "react";
+import { Toaster } from "../components/ui/sonner";
 
 const menuItems = [
   {
@@ -93,10 +94,11 @@ function Root() {
           <ModeToggle />
         </div>
         <Separator />
-        <div className="px-4 py-2 h-full">
+  <div className="px-4 py-2 flex flex-1 min-h-0 flex-col overflow-hidden">
           <Outlet />
           <TanStackRouterDevtools />
         </div>
+        <Toaster richColors position="top-center" />
       </SidebarInset>
     </SidebarProvider>
   );

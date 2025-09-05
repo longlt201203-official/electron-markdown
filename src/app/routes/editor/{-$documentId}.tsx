@@ -9,7 +9,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog";
+} from "@/app/components/ui/alert-dialog"; // still used for delete confirmation
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import {
@@ -28,8 +28,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Editor } from "@monaco-editor/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { FieldErrors, useForm } from "react-hook-form";
 import z from "zod";
+// Removed ScrollArea for preview; using plain overflow container for consistent internal scrolling
 
 export const Route = createFileRoute("/editor/{-$documentId}")({
   component: RouteComponent,
@@ -43,15 +45,20 @@ function RouteComponent() {
     resolver: zodResolver(
       z.object({
         id: z.number().optional(),
-        title: z.string().min(2).max(100),
-        content: z.string().min(2).max(10000),
+        title: z
+          .string()
+          .min(2, "Title must be at least 2 characters long")
+          .max(100, "Title must be at most 100 characters long"),
+        content: z
+          .string()
+          .min(2, "Content must be at least 2 characters long")
+          .max(10000, "Content must be at most 10,000 characters long"),
       })
     ),
     defaultValues: { id: undefined, title: "", content: "" },
   });
   const { refetch: refetchDocuments, documents } = useDocuments();
-  const [errorOpen, setErrorOpen] = useState(false);
-  const [errorMessages, setErrorMessages] = useState<string[]>([]);
+  // Removed error dialog state; using toast notifications instead
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -86,15 +93,24 @@ function RouteComponent() {
   const handleSave = async (data: SaveDocumentParams) => {
     setIsSaving(true);
     try {
-      const documentId = await nativeAPI.invokeNativeAPI(NATIVE_API_SAVE_DOCUMENT, data);
+      const documentId = await nativeAPI.invokeNativeAPI(
+        NATIVE_API_SAVE_DOCUMENT,
+        data
+      );
       refetchDocuments();
+      const created = !data.id;
+      toast.success(created ? "Document created" : "Document saved", {
+        description: data.title || "Untitled",
+      });
       if (!data.id) {
-        navigate({ to: "/editor/{-$documentId}", params: { documentId: documentId.toString() } });
+        navigate({
+          to: "/editor/{-$documentId}",
+          params: { documentId: documentId.toString() },
+        });
       }
     } catch (err: any) {
       const message = err?.message || String(err) || "Unknown error";
-      setErrorMessages([message]);
-      setErrorOpen(true);
+      toast.error("Failed to save document", { description: message });
     } finally {
       setIsSaving(false);
     }
@@ -104,13 +120,22 @@ function RouteComponent() {
     const msgs = Object.values(errors)
       .map((e) => (e as any)?.message as string | undefined)
       .filter((m): m is string => !!m);
-    setErrorMessages(msgs.length ? msgs : ["Form validation failed."]);
-    setErrorOpen(true);
+    if (!msgs.length) {
+      toast.error("Validation failed", {
+        description: "Please fix the highlighted fields.",
+      });
+      return;
+    }
+    const unique = Array.from(new Set(msgs));
+    // Combine into a single toast with newline separation for clarity
+    toast.error("Validation failed", {
+      description: unique.join("\n"),
+    });
   };
 
   return (
     <>
-      <div className="flex flex-col h-full gap-y-4 overflow-hidden">
+  <div className="flex flex-col flex-1 min-h-0 gap-y-4 overflow-hidden">
         <div className="flex flex-col gap-y-1">
           <div>
             <Button
@@ -150,14 +175,18 @@ function RouteComponent() {
         />
         <ResizablePanelGroup
           direction="horizontal"
-          className="flex-1 min-h-0 overflow-hidden"
+          className="flex-1 min-h-0 h-full overflow-hidden"
         >
-          <ResizablePanel defaultSize={50}>
+          <ResizablePanel
+            defaultSize={50}
+            className="flex flex-col min-h-0 h-full overflow-hidden"
+          >
             <Editor
               theme={getDarkOrLightTheme(theme) === "dark" ? "vs-dark" : "vs"}
               language="markdown"
               value={form.watch("content")}
               onChange={(v) => form.setValue("content", v || "")}
+              height="100%"
               options={{
                 wordWrap: "on",
                 minimap: { enabled: false },
@@ -167,33 +196,18 @@ function RouteComponent() {
             />
           </ResizablePanel>
           <ResizableHandle />
-          <ResizablePanel defaultSize={50}>
-            <MarkdownPreview content={form.watch("content")} className="px-2" />
+          <ResizablePanel
+            defaultSize={50}
+            className="flex flex-col min-h-0 h-full overflow-hidden"
+          >
+            <div className="flex-1 min-h-0 w-full overflow-y-auto">
+              <div className="px-2 pb-8">
+                <MarkdownPreview content={form.watch("content")} />
+              </div>
+            </div>
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
-
-      <AlertDialog open={errorOpen} onOpenChange={setErrorOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Failed to save document</AlertDialogTitle>
-            <AlertDialogDescription>
-              {errorMessages.length
-                ? errorMessages.map((m, i) => (
-                    <span key={i} className="block text-left">
-                      {m}
-                    </span>
-                  ))
-                : "An unexpected error occurred while saving the document."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setErrorOpen(false)} autoFocus>
-              Close
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Delete confirmation dialog */}
       <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
@@ -201,7 +215,8 @@ function RouteComponent() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this document?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action permanently removes the document and its file from disk. This cannot be undone.
+              This action permanently removes the document and its file from
+              disk. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -214,6 +229,7 @@ function RouteComponent() {
                 }
                 setIsDeleting(true);
                 try {
+                  const deletedTitle = form.getValues("title");
                   await nativeAPI.invokeNativeAPI(
                     NATIVE_API_DELETE_DOCUMENT,
                     currentId
@@ -221,13 +237,18 @@ function RouteComponent() {
                   setConfirmDeleteOpen(false);
                   await refetchDocuments();
                   form.reset({ title: "", content: "", id: undefined });
-                  try { form.setValue("id", undefined as any); } catch {}
+                  try {
+                    form.setValue("id", undefined as any);
+                  } catch {}
+                  toast.success("Document deleted", {
+                    description: deletedTitle || `ID ${currentId}`,
+                  });
                   navigate({ to: ".." });
                 } catch (err: any) {
-                  setErrorMessages([
-                    err?.message || String(err) || "Failed to delete document",
-                  ]);
-                  setErrorOpen(true);
+                  toast.error("Failed to delete document", {
+                    description:
+                      err?.message || String(err) || "Unknown delete error",
+                  });
                 } finally {
                   setIsDeleting(false);
                 }
