@@ -1,7 +1,7 @@
 {
   "name": "beye",
   "productName": "beye",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "My Electron application description",
   "main": ".vite/build/main.js",
   "scripts": {
@@ -13,6 +13,10 @@
   },
   "keywords": [],
   "author": "longlt201203",
+  "repository": {
+    "type": "git",
+    "url": "github:longlt201203-official/electron-markdown"
+  },
   "license": "MIT",
   "devDependencies": {
     "@electron-forge/cli": "^7.8.1",
@@ -69,6 +73,7 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.11",
     "tw-animate-css": "^1.3.5",
+    "update-electron-app": "^3.1.1",
     "vaul": "^1.1.2",
     "zod": "^4.1.5"
   }
