@@ -8,7 +8,7 @@ on:
 
 env:
   REPO_ID: electron-markdown
-  GITHUB_TOKEN: ${{ secrets.PAT }}
+  GITHUB_TOKEN: ${{ secrets.ELECTRON_PAT }}
 
 jobs:
   build-on-win:
