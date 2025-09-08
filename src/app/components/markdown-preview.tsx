@@ -1,8 +1,19 @@
-import React, { Suspense } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 const Markdown = React.lazy(() => import("react-markdown"));
 import { cn } from "@/app/lib/utils";
 import MyCodeBlock from "./my-code-block";
 import InlineCode from "./inline-code";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableFooter,
+  TableCaption,
+} from "./ui/table";
+// remark-gfm is ESM; we'll load dynamically to avoid CommonJS import issues
 
 export interface MyMarkdownProps {
   content?: string;
@@ -15,6 +26,23 @@ export default function MarkdownPreview({
   className,
   emptyPlaceholder = <span className="text-muted-foreground">No content</span>,
 }: MyMarkdownProps) {
+  const [remarkPlugins, setRemarkPlugins] = useState<any[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const mod = await import("remark-gfm");
+        if (mounted) setRemarkPlugins([mod.default]);
+      } catch (err) {
+        console.warn("Failed to load remark-gfm", err);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   if (!content.trim()) {
     return (
       <div
@@ -46,6 +74,7 @@ export default function MarkdownPreview({
         }
       >
         <Markdown
+          remarkPlugins={remarkPlugins}
           components={{
             h1: ({ children, ...p }) => (
               <h1
@@ -160,6 +189,37 @@ export default function MarkdownPreview({
             ),
             code: (props) => <InlineCode {...props} />,
             pre: (props) => <MyCodeBlock {...props} />,
+            blockquote: ({ children, ...p }) => (
+              <blockquote
+                className={cn(
+                  "border-l-4 pl-4 py-1 my-4 italic bg-muted/30 rounded-r-md text-muted-foreground [&>*:last-child]:mb-0",
+                  p.className
+                )}
+                {...p}
+              >
+                {children}
+              </blockquote>
+            ),
+            table: ({ children, ...p }) => <Table {...p}>{children}</Table>,
+            thead: ({ children, ...p }) => (
+              <TableHeader {...p}>{children}</TableHeader>
+            ),
+            tbody: ({ children, ...p }) => (
+              <TableBody {...p}>{children}</TableBody>
+            ),
+            tfoot: ({ children, ...p }) => (
+              <TableFooter {...p}>{children}</TableFooter>
+            ),
+            tr: ({ children, ...p }) => <TableRow {...p}>{children}</TableRow>,
+            th: ({ children, ...p }) => (
+              <TableHead {...p}>{children}</TableHead>
+            ),
+            td: ({ children, ...p }) => (
+              <TableCell {...p}>{children}</TableCell>
+            ),
+            caption: ({ children, ...p }) => (
+              <TableCaption {...p}>{children}</TableCaption>
+            ),
           }}
         >
           {content}
