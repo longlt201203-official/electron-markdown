@@ -6,7 +6,8 @@ import readdir from "./apis/readdir";
 import saveDocument from "./apis/save-document";
 import saveSettings from "./apis/save-settings";
 import sayHi from "./apis/say-hi";
-import { NATIVE_API_DELETE_DOCUMENT, NATIVE_API_LIST_DOCUMENTS, NATIVE_API_READ_SETTINGS, NATIVE_API_READ_STRING_FILE, NATIVE_API_READDIR, NATIVE_API_SAVE_DOCUMENT, NATIVE_API_SAVE_SETTINGS, NATIVE_API_SAY_HI } from "./constants";
+import { NATIVE_API_DELETE_DOCUMENT, NATIVE_API_LIST_DOCUMENTS, NATIVE_API_READ_SETTINGS, NATIVE_API_READ_STRING_FILE, NATIVE_API_READDIR, NATIVE_API_SAVE_DOCUMENT, NATIVE_API_SAVE_SETTINGS, NATIVE_API_SAY_HI, NATIVE_API_SAVE_IMAGE } from "./constants";
+import saveImage from "./apis/save-image";
 import { NativeAPIHandler } from "./types";
 
 const nativeAPI: Record<string, NativeAPIHandler> = {
@@ -17,7 +18,8 @@ const nativeAPI: Record<string, NativeAPIHandler> = {
   [NATIVE_API_SAVE_DOCUMENT]: saveDocument,
   [NATIVE_API_LIST_DOCUMENTS]: listDocuments,
   [NATIVE_API_READ_STRING_FILE]: readStringFile,
-  [NATIVE_API_DELETE_DOCUMENT]: deleteDocument
+  [NATIVE_API_DELETE_DOCUMENT]: deleteDocument,
+  [NATIVE_API_SAVE_IMAGE]: saveImage
 };
 
 export default nativeAPI;
