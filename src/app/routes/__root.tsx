@@ -23,7 +23,20 @@ import { ModeToggle } from "../components/mode-toggle";
 import GuideDrawer from "../components/guide-drawer";
 import { Separator } from "../components/ui/separator";
 import { useDocuments } from "../components/documents-provider";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Button } from "../components/ui/button";
+import { CircleQuestionMarkIcon } from "lucide-react";
+import { NATIVE_API_UPDATE_RESTART, NATIVE_EVENT_UPDATE_DOWNLOADED } from "@/native/constants";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
 import { Toaster } from "../components/ui/sonner";
 
 const menuItems = [
@@ -37,9 +50,32 @@ const menuItems = [
 function Root() {
   const location = useLocation();
   const { documents, refetch } = useDocuments();
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<
+    | null
+    | {
+        releaseName: string;
+        releaseNotes: string;
+        releaseDate: string;
+        updateURL: string;
+      }
+  >(null);
 
   useEffect(() => {
     refetch();
+  }, []);
+
+  // Subscribe to update notifications from main
+  useEffect(() => {
+    const off = window.nativeAPI?.nativeAPICallback?.(
+      NATIVE_EVENT_UPDATE_DOWNLOADED,
+      (_evt, payload) => {
+        setUpdateInfo(payload);
+      }
+    );
+    return () => {
+      off?.();
+    };
   }, []);
 
   return (
@@ -90,7 +126,14 @@ function Root() {
       </Sidebar>
       <SidebarInset>
         <div className="px-4 py-2 flex gap-2 items-center">
-          <GuideDrawer />
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label={guideOpen ? "Hide Markdown guide" : "Show Markdown guide"}
+            onClick={() => setGuideOpen((v) => !v)}
+          >
+            <CircleQuestionMarkIcon className="size-4" />
+          </Button>
           <ModeToggle />
         </div>
         <Separator />
@@ -98,6 +141,33 @@ function Root() {
           <Outlet />
           <TanStackRouterDevtools />
         </div>
+        {/* Update dialog with release notes */}
+        <AlertDialog open={!!updateInfo} onOpenChange={(open) => !open && setUpdateInfo(null)}>
+          <AlertDialogContent className="max-w-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {updateInfo?.releaseName || "Update available"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                A new version has been downloaded. Review the notes below, then restart to apply the update.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="max-h-[50vh] overflow-y-auto rounded-md border bg-background p-3 text-sm whitespace-pre-wrap">
+              {updateInfo?.releaseNotes || "No release notes provided."}
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setUpdateInfo(null)}>Later</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  window.nativeAPI?.invokeNativeAPI?.(NATIVE_API_UPDATE_RESTART);
+                }}
+              >
+                Restart now
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        <GuideDrawer open={guideOpen} onOpenChange={setGuideOpen} />
         <Toaster richColors position="top-center" />
       </SidebarInset>
     </SidebarProvider>
