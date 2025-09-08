@@ -23,11 +23,13 @@ import {
   NATIVE_API_SAVE_DOCUMENT,
   NATIVE_API_DELETE_DOCUMENT,
 } from "@/native/constants";
+import { NATIVE_API_SAVE_IMAGE } from "@/native/constants";
 import { BeyeDocument, SaveDocumentParams } from "@/native/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Editor } from "@monaco-editor/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useDebouncedCallback } from "@/app/hooks/use-debounced-callback";
 import { toast } from "sonner";
 import { FieldErrors, useForm } from "react-hook-form";
 import z from "zod";
@@ -90,31 +92,52 @@ function RouteComponent() {
     }
   }, [documentId, documents]);
 
-  const handleSave = async (data: SaveDocumentParams) => {
+  // Track last saved snapshot to prevent redundant auto-saves
+  const lastSavedRef = useRef<string>("");
+
+  const saveDocument = async (
+    data: SaveDocumentParams,
+    { silent }: { silent: boolean }
+  ) => {
     setIsSaving(true);
     try {
-      const documentId = await nativeAPI.invokeNativeAPI(
+      const newId = await nativeAPI.invokeNativeAPI(
         NATIVE_API_SAVE_DOCUMENT,
         data
       );
-      refetchDocuments();
       const created = !data.id;
-      toast.success(created ? "Document created" : "Document saved", {
-        description: data.title || "Untitled",
-      });
-      if (!data.id) {
+      if (created) {
         navigate({
           to: "/editor/{-$documentId}",
-          params: { documentId: documentId.toString() },
+          params: { documentId: newId.toString() },
+        });
+        data.id = newId; // mutate local copy so subsequent saves know id
+      }
+      // Refresh list (async fire & forget)
+      refetchDocuments();
+      // Record snapshot
+      lastSavedRef.current = JSON.stringify({
+        id: data.id,
+        title: data.title,
+        content: data.content,
+      });
+      if (!silent) {
+        toast.success(created ? "Document created" : "Document saved", {
+          description: data.title || "Untitled",
         });
       }
     } catch (err: any) {
-      const message = err?.message || String(err) || "Unknown error";
-      toast.error("Failed to save document", { description: message });
+      if (!silent) {
+        const message = err?.message || String(err) || "Unknown error";
+        toast.error("Failed to save document", { description: message });
+      }
     } finally {
       setIsSaving(false);
     }
   };
+
+  const manualSave = (d: SaveDocumentParams) =>
+    saveDocument(d, { silent: false });
 
   const handleInvalid = (errors: FieldErrors<SaveDocumentParams>) => {
     const msgs = Object.values(errors)
@@ -133,6 +156,26 @@ function RouteComponent() {
     });
   };
 
+  // Debounced auto-save (2s after last content or title change)
+  const debouncedAutoSave = useDebouncedCallback(() => {
+    if (isSaving) return;
+    const values = form.getValues();
+    const snapshot = JSON.stringify({
+      id: values.id,
+      title: values.title,
+      content: values.content,
+    });
+    if (snapshot === lastSavedRef.current) return; // nothing changed
+    form.handleSubmit(
+      (d) => saveDocument(d, { silent: true }),
+      () => {}
+    )();
+  }, 2000);
+
+  useEffect(() => {
+    debouncedAutoSave();
+  }, [form.watch("content"), form.watch("title"), debouncedAutoSave]);
+
   return (
     <>
       <div className="flex flex-col flex-1 min-h-0 gap-y-4 overflow-hidden">
@@ -149,7 +192,9 @@ function RouteComponent() {
               New
             </Button>
             <Button
-              onClick={() => form.handleSubmit(handleSave, handleInvalid)()}
+              onClick={() =>
+                form.handleSubmit((d) => manualSave(d), handleInvalid)()
+              }
               disabled={isSaving}
               className="ml-2"
             >
@@ -186,12 +231,26 @@ function RouteComponent() {
               language="markdown"
               value={form.watch("content")}
               onChange={(v) => form.setValue("content", v || "")}
+              onMount={(editor, monaco) => {
+                // Paste listener (example placeholder)
+                const pasteDisposable = editor.onDidPaste(async (e) => {});
+
+                // Register Ctrl/Cmd+S inside Monaco
+                editor.addCommand(
+                  monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+                  () => form.handleSubmit((d) => manualSave(d), handleInvalid)()
+                );
+                editor.onDidDispose(() => {
+                  pasteDisposable.dispose();
+                });
+              }}
               height="100%"
               options={{
                 wordWrap: "on",
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
                 automaticLayout: true,
+                formatOnPaste: true,
               }}
             />
           </ResizablePanel>
@@ -269,3 +328,8 @@ function RouteComponent() {
     </>
   );
 }
+
+// Global Ctrl/Cmd+S listener (outside component scope not suitable because needs form). Left intentionally empty.
+
+// Auto-save effect (2s debounce after user stops typing or changing title)
+// Placed after component for clarity; actual logic should be inside RouteComponent but added here is non-operative.
